@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>MAEK7 Dental Intelligence | تحليل أشعة الأسنان بالذكاء الاصطناعي</title>
+    <script type="importmap">
+        {
+            "imports": {
+                "@google/generative-ai": "https://esm.run/@google/generative-ai"
+            }
+        }
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+        }
+
+        body {
+            background: #0f1117;
+            color: #eef2ff;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* سلايدر جانبي */
+        .sidebar {
+            width: 280px;
+            background: #090c10;
+            border-left: 1px solid #1e293b;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px 16px;
+            overflow-y: auto;
+        }
+
+        .card-side {
+            background: #11161f;
+            border-radius: 20px;
+            padding: 18px;
+            margin-bottom: 24px;
+            border: 1px solid #1e2a3a;
+        }
+
+        .history-item {
+            background: #0f131c;
+            padding: 12px;
+            border-radius: 14px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            border-right: 3px solid #10a37f;
+        }
+
+        .history-item:hover {
+            background: #1a2536;
+        }
+
+        .clear-btn {
+            width: 100%;
+            padding: 10px;
+            background: transparent;
+            border: 1px solid #ef4444;
+            color: #f87171;
+            border-radius: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: 0.2s;
+        }
+
+        .clear-btn:hover {
+            background: #2d1a2a;
+            border-color: #ff8888;
+        }
+
+        /* منطقة المحادثة والتحليل */
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background: #0f1117;
+        }
+
+        .top-bar {
+            background: #0a0d12;
+            padding: 12px 24px;
+            border-bottom: 1px solid #1e293b;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .api-input {
+            flex: 1;
+            background: #111827;
+            border: 1px solid #2d3a4e;
+            padding: 10px 14px;
+            border-radius: 40px;
+            color: white;
+            font-family: monospace;
+            font-size: 13px;
+            direction: ltr;
+        }
+
+        .status-badge {
+            background: #11161f;
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 18% 160px 18%;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        @media (max-width: 1000px) {
+            .messages-area {
+                padding: 20px 4% 160px 4%;
+            }
+        }
+
+        .msg {
+            display: flex;
+            gap: 14px;
+            max-width: 88%;
+        }
+
+        .msg.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            background: #10a37f;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .user .avatar {
+            background: #334155;
+        }
+
+        .bubble {
+            background: #1e2538;
+            padding: 14px 20px;
+            border-radius: 24px;
+            line-height: 1.5;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .user .bubble {
+            background: #0f6b58;
+        }
+
+        .report-card {
+            background: #0f172ad9;
+            border-radius: 28px;
+            padding: 18px;
+            margin-top: 8px;
+            border: 1px solid #2d3a5e;
+        }
+
+        .tooth-map {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 16px 0;
+        }
+
+        .tooth-badge {
+            background: #111a2e;
+            border-radius: 40px;
+            padding: 6px 16px;
+            font-size: 13px;
+            font-weight: bold;
+            border-right: 4px solid;
+        }
+
+        .risk-high {
+            border-right-color: #ef4444;
+        }
+        .risk-medium {
+            border-right-color: #f59e0b;
+        }
+        .risk-low {
+            border-right-color: #10a37f;
+        }
+
+        .input-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, #0f1117 70%, transparent);
+            padding: 20px 20% 30px 20%;
+        }
+
+        @media (max-width: 1000px) {
+            .input-container {
+                padding: 16px 4% 24px 4%;
+            }
+        }
+
+        .input-panel {
+            background: #11161f;
+            border: 1px solid #2a3748;
+            border-radius: 32px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+        }
+
+        textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 15px;
+            outline: none;
+            resize: none;
+            padding: 10px 0;
+            font-family: inherit;
+        }
+
+        button {
+            background: #2a3748;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 60px;
+            cursor: pointer;
+            font-size: 22px;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .upload-btn {
+            background: #1e2a3a;
+            font-size: 24px;
+        }
+
+        .send-btn {
+            background: #10a37f;
+            color: white;
+        }
+
+        button:hover {
+            filter: brightness(1.1);
+            transform: scale(0.97);
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div>
+        <div class="card-side">
+            <h3 style="font-size: 18px;">🦷 MAEK7 Dental</h3>
+            <p style="font-size: 12px; color: #9ca3af; margin-top: 6px;">ذكاء اصطناعي لتحليل الأشعة والمتابعة</p>
+        </div>
+        <div class="card-side">
+            <div style="font-weight: bold; margin-bottom: 12px;">📋 جلسات سابقة</div>
+            <div id="historyListSide">
+                <!-- تاريخ التحليلات -->
+            </div>
+        </div>
+    </div>
+    <div>
+        <button class="clear-btn" id="forceClearHistory">🧹 مسح كل البيانات</button>
+        <div style="font-size: 11px; margin-top: 16px; color: #4b5563; text-align: center;">
+            بياناتك مخزنة محلياً 🔒
+        </div>
+    </div>
+</div>
+
+<div class="chat-main">
+    <div class="top-bar">
+        <input type="password" id="apiKey" class="api-input" placeholder="🔑 مفتاح Gemini API (AIza...)" oninput="saveApiKeyLocal()">
+        <div id="statusBadge" class="status-badge">⚙️ انتظار المفتاح</div>
+    </div>
+
+    <div class="messages-area" id="messageList"></div>
+
+    <div class="input-container">
+        <div class="input-panel">
+            <button class="upload-btn" id="imageUploadBtn" title="رفع صورة أشعة">📷</button>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            <textarea id="userPrompt" placeholder="اكتب استفسارًا أو ارفع صورة أشعة لتحليلها بالذكاء الاصطناعي..."></textarea>
+            <button class="send-btn" id="sendMsgBtn">↑</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { GoogleGenerativeAI } from "@google/generative-ai";
+
+    // ---------- DOM elements ----------
+    const messagesDiv = document.getElementById('messageList');
+    const apiInput = document.getElementById('apiKey');
+    const statusSpan = document.getElementById('statusBadge');
+    const sendButton = document.getElementById('sendMsgBtn');
+    const userTextarea = document.getElementById('userPrompt');
+    const uploadBtn = document.getElementById('imageUploadBtn');
+    const fileInput = document.getElementById('fileInput');
+    const historySideDiv = document.getElementById('historyListSide');
+    const clearHistoryBtn = document.getElementById('forceClearHistory');
+
+    let conversationHistory = []; // {sender, text, isReport? , rawAnalysis?}
+
+    // تحميل البيانات المحفوظة
+    function loadStorage() {
+        const savedApi = localStorage.getItem('maek7_gemini_key');
+        if (savedApi) apiInput.value = savedApi;
+        updateApiStatus();
+
+        const storedChat = localStorage.getItem('maek7_chat_log');
+        if (storedChat) {
+            try {
+                conversationHistory = JSON.parse(storedChat);
+            } catch(e) { conversationHistory = []; }
+        }
+        if (!conversationHistory.length) {
+            conversationHistory.push({
+                sender: 'assistant',
+                text: "🌟 **منصة MAEK7 Dental Intelligence**\n\nمرحباً! أستطيع تحليل صور أشعة الأسنان باستخدام الذكاء الاصطناعي، واكتشاف التسوس، التهاب الجذور، فقدان العظم، والأسنان المطمورة.\n\n**كيف تبدأ؟**\n1️⃣ الصق مفتاح Gemini API بالأعلى.\n2️⃣ ارفع صورة أشعة (كاميرا الهاتف أو ملف).\n3️⃣ سأقدم تقريرًا كاملًا وخريطة أسنان تفاعلية.\n\nأيضًا يمكنك كتابة أسئلة نصية."
+            });
+            saveChatHistory();
+        }
+        renderMessages();
+        renderHistorySidebar();
+    }
+
+    function saveApiKeyLocal() {
+        const key = apiInput.value.trim();
+        if (key) localStorage.setItem('maek7_gemini_key', key);
+        else localStorage.removeItem('maek7_gemini_key');
+        updateApiStatus();
+    }
+
+    function updateApiStatus() {
+        const has = apiInput.value.trim().length > 10;
+        if (has) {
+            statusSpan.innerHTML = "🟢 AI Ready (Gemini)";
+            statusSpan.style.background = "#0a2f2a";
+            statusSpan.style.color = "#6ee7b7";
+        } else {
+            statusSpan.innerHTML = "🔴 أضف مفتاح API";
+            statusSpan.style.background = "#2d1f2a";
+            statusSpan.style.color = "#fca5a5";
+        }
+    }
+
+    function saveChatHistory() {
+        localStorage.setItem('maek7_chat_log', JSON.stringify(conversationHistory));
+    }
+
+    function renderMessages() {
+        messagesDiv.innerHTML = '';
+        conversationHistory.forEach(msg => {
+            const divMsg = document.createElement('div');
+            divMsg.className = `msg ${msg.sender === 'user' ? 'user' : 'assistant'}`;
+            const avatarDiv = document.createElement('div');
+            avatarDiv.className = 'avatar';
+            avatarDiv.innerText = msg.sender === 'user' ? 'U' : 'AI';
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'bubble';
+            if (msg.isReport && msg.reportHtml) {
+                bubbleDiv.innerHTML = msg.reportHtml;
+            } else {
+                bubbleDiv.innerHTML = msg.text.replace(/\n/g, '<br>');
+            }
+            divMsg.appendChild(avatarDiv);
+            divMsg.appendChild(bubbleDiv);
+            messagesDiv.appendChild(divMsg);
+        });
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function renderHistorySidebar() {
+        const analysisItems = conversationHistory.filter(m => m.sender === 'assistant' && m.isReport);
+        if (analysisItems.length === 0) {
+            historySideDiv.innerHTML = '<div style="color:#4b5563;font-size:13px;">لا توجد تحليلات سابقة</div>';
+            return;
+        }
+        historySideDiv.innerHTML = analysisItems.slice().reverse().map((item, idx) => {
+            const short = (item.text?.slice(0, 50) || 'تقرير أسنان') + '...';
+            return `<div class="history-item" data-index="${conversationHistory.indexOf(item)}">🦷 ${short}</div>`;
+        }).join('');
+        document.querySelectorAll('.history-item').forEach(el => {
+            el.addEventListener('click', (e) => {
+                const idx = parseInt(el.dataset.index);
+                if (!isNaN(idx)) {
+                    const targetMsg = conversationHistory[idx];
+                    if (targetMsg) {
+                        scrollToMessage(idx);
+                    }
+                }
+            });
+        });
+    }
+
+    function scrollToMessage(index) {
+        const msgElements = document.querySelectorAll('.msg');
+        if (msgElements[index]) {
+            msgElements[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    async function analyzeDentalXRay(imageBase64, userQuestion = "حلل صورة الأشعة هذه باكتشاف التسوس، التهابات الجذور، فقدان العظم، الأسنان المطمورة. أعطني تقريرًا طبيًا أوليًا مع خريطة افتراضية للأسنان ومؤشرات خطر.") {
+        const apiKey = apiInput.value.trim();
+        if (!apiKey) throw new Error("يرجى إدخال مفتاح Gemini API أولاً.");
+        
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        
+        const promptText = `أنت خبير في طب الأسنان والذكاء الاصطناعي البصري. قم بتحليل صورة أشعة الأسنان (بانورامية أو periapical). 
+
+المطلوب:
+1. تحديد الأسنان التي بها مشاكل محتملة.
+2. لكل مشكلة: نوعها (تسوس، التهاب جذري، فقدان عظم، سن مطمور، كسر) ومؤشر خطر (عالي/متوسط/منخفض).
+3. أعد التقرير بتنسيق HTML بديع وجذاب يحتوي على:
+   - ملخص سريع للمشاكل.
+   - خريطة أسنان تفاعلية كـ divs تمثل 8 أسنان على الأقل مع ألوان الخطر.
+   - نصائح للمريض بلغة سهلة.
+   - اقتراح أولي للعلاج.
+
+السؤال الإضافي: ${userQuestion || "قدم تحليلاً تشخيصياً دقيقاً"}
+
+تأكد من ذكر أرقام الأسنان (مثلاً السن 36, 24) والمخاطر.`;
+
+        const imagePart = {
+            inlineData: {
+                data: imageBase64.split(',')[1],
+                mimeType: "image/jpeg"
+            }
+        };
+
+        const result = await model.generateContent([promptText, imagePart]);
+        const responseText = result.response.text();
+        
+        // استخراج HTML إن وجد
+        let htmlContent = responseText;
+        if (!responseText.includes('<div') && !responseText.includes('<h')) {
+            htmlContent = `<div class="report-card"><h3>📋 تقرير MAEK7</h3><p>${responseText.replace(/\n/g, '<br>')}</p></div>`;
+        }
+        return { fullHtml: htmlContent, rawText: responseText };
+    }
+
+    async function sendMessageWithImage(base64Image, userText) {
+        // إضافة رسالة المستخدم
+        conversationHistory.push({ sender: 'user', text: userText || "📸 تحليل صورة أشعة الأسنان" });
+        saveChatHistory();
+        renderMessages();
+        
+        // رسالة انتظار
+        const waitingMsgIndex = conversationHistory.length;
+        conversationHistory.push({ sender: 'assistant', text: "🔍 جاري التحليل باستخدام الذكاء الاصطناعي...", isReport: false });
+        saveChatHistory();
+        renderMessages();
+        
+        try {
+            const report = await analyzeDentalXRay(base64Image, userText || "كشف شامل");
+            // تحديث الرسالة الأخيرة
+            conversationHistory[waitingMsgIndex] = {
+                sender: 'assistant',
+                text: report.rawText,
+                reportHtml: report.fullHtml,
+                isReport: true
+            };
+            saveChatHistory();
+            renderMessages();
+            renderHistorySidebar();
+        } catch (err) {
+            conversationHistory[waitingMsgIndex] = {
+                sender: 'assistant',
+                text: `❌ فشل التحليل: ${err.message}`,
+                isError: true
+            };
+            saveChatHistory();
+            renderMessages();
+        }
+    }
+
+    async function sendTextOnly(text) {
+        const apiKey = apiInput.value.trim();
+        if (!apiKey) {
+            conversationHistory.push({ sender: 'assistant', text: "⚠️ يرجى لصق مفتاح Gemini في الشريط العلوي أولاً." });
+            saveChatHistory();
+            renderMessages();
+            return;
+        }
+        conversationHistory.push({ sender: 'user', text: text });
+        saveChatHistory();
+        renderMessages();
+        
+        const waitingIdx = conversationHistory.length;
+        conversationHistory.push({ sender: 'assistant', text: "🤖 جاري التفكير...", isReport: false });
+        saveChatHistory();
+        renderMessages();
+        
+        try {
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+            const result = await model.generateContent(text);
+            const answer = result.response.text();
+            conversationHistory[waitingIdx] = { sender: 'assistant', text: answer };
+            saveChatHistory();
+            renderMessages();
+        } catch (err) {
+            conversationHistory[waitingIdx] = { sender: 'assistant', text: `خطأ: ${err.message}` };
+            saveChatHistory();
+            renderMessages();
+        }
+    }
+
+    // حدث رفع الصورة
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            const base64 = ev.target.result;
+            const userPromptText = userTextarea.value.trim() || "حلل صورة الأشعة هذه بشكل شامل";
+            await sendMessageWithImage(base64, userPromptText);
+            userTextarea.value = '';
+            fileInput.value = '';
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // إرسال النص
+    sendButton.addEventListener('click', async () => {
+        const txt = userTextarea.value.trim();
+        if (!txt) return;
+        userTextarea.value = '';
+        await sendTextOnly(txt);
+    });
+    userTextarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendButton.click();
+        }
+    });
+
+    clearHistoryBtn.addEventListener('click', () => {
+        if (confirm("مسح كل سجل المحادثات والتحليلات نهائياً؟")) {
+            localStorage.removeItem('maek7_chat_log');
+            conversationHistory = [];
+            loadStorage(); // يعيد التحميل مع رسالة الترحيب
+            renderHistorySidebar();
+        }
+    });
+
+    loadStorage();
+</script>
+</body>
+</html>
