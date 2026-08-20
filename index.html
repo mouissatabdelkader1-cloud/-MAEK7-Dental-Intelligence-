@@ -27,7 +27,6 @@
             overflow: hidden;
         }
 
-        /* سلايدر جانبي */
         .sidebar {
             width: 280px;
             background: #090c10;
@@ -79,7 +78,6 @@
             border-color: #ff8888;
         }
 
-        /* منطقة المحادثة والتحليل */
         .chat-main {
             flex: 1;
             display: flex;
@@ -179,30 +177,46 @@
             border: 1px solid #2d3a5e;
         }
 
-        .tooth-map {
+        /* نافذة الإرشادات المنبثقة */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-guide {
+            background: #11161f;
+            border-radius: 32px;
+            max-width: 500px;
+            width: 90%;
+            padding: 28px;
+            border: 1px solid #10a37f;
+            box-shadow: 0 25px 50px -12px black;
+        }
+
+        .guide-step {
+            background: #0a0f18;
+            border-radius: 20px;
+            padding: 12px 16px;
             margin: 16px 0;
+            border-right: 4px solid #10a37f;
         }
 
-        .tooth-badge {
-            background: #111a2e;
+        .close-guide-btn {
+            background: #10a37f;
+            width: auto;
+            padding: 10px 24px;
             border-radius: 40px;
-            padding: 6px 16px;
-            font-size: 13px;
             font-weight: bold;
-            border-right: 4px solid;
-        }
-
-        .risk-high {
-            border-right-color: #ef4444;
-        }
-        .risk-medium {
-            border-right-color: #f59e0b;
-        }
-        .risk-low {
-            border-right-color: #10a37f;
+            margin-top: 16px;
         }
 
         .input-container {
@@ -327,9 +341,47 @@
     const historySideDiv = document.getElementById('historyListSide');
     const clearHistoryBtn = document.getElementById('forceClearHistory');
 
-    let conversationHistory = []; // {sender, text, isReport? , rawAnalysis?}
+    let conversationHistory = [];
+    let imageUploadCount = 0;
 
-    // تحميل البيانات المحفوظة
+    // 🎓 نافذة الإرشادات الذكية
+    function showPhotoGuidance() {
+        const existingModal = document.querySelector('.modal-overlay');
+        if (existingModal) return;
+        
+        const modalDiv = document.createElement('div');
+        modalDiv.className = 'modal-overlay';
+        modalDiv.innerHTML = `
+            <div class="modal-guide">
+                <h2 style="color:#10a37f; margin-bottom: 12px;">📸 كيف تلتقط صورة الأشعة المناسبة؟</h2>
+                <div class="guide-step">
+                    <strong>✅ 1. نوع الصورة الصحيح:</strong><br>
+                    صورة أشعة سينية (بانورامية أو محيطية) من عيادة الأسنان، وليست صورة عادية للفم.
+                </div>
+                <div class="guide-step">
+                    <strong>📱 2. تصوير الشاشة بالهاتف:</strong><br>
+                    • صوّر في غرفة مظلمة<br>
+                    • واجه الشاشة مباشرة بدون زاوية<br>
+                    • لا تستخدم الفلاش أبداً<br>
+                    • تأكد من ظهور كل الأسنان بوضوح
+                </div>
+                <div class="guide-step">
+                    <strong>🔍 3. علامات الصورة الجيدة:</strong><br>
+                    الأسنان بيضاء، العظام رمادية، الخلفية سوداء أو زرقاء داكنة، لا يوجد انعكاسات
+                </div>
+                <div class="guide-step">
+                    <strong>⚠️ 4. الصور غير المناسبة:</strong><br>
+                    صور سيلفي، صور بالفم المفتوح بدون أشعة، صور ضبابية أو مظلمة جداً
+                </div>
+                <button class="close-guide-btn" id="closeGuideBtn" style="background:#10a37f; width:100%;">فهمت ✅ ابدأ التحليل</button>
+            </div>
+        `;
+        document.body.appendChild(modalDiv);
+        document.getElementById('closeGuideBtn').addEventListener('click', () => {
+            modalDiv.remove();
+        });
+    }
+
     function loadStorage() {
         const savedApi = localStorage.getItem('maek7_gemini_key');
         if (savedApi) apiInput.value = savedApi;
@@ -412,10 +464,7 @@
             el.addEventListener('click', (e) => {
                 const idx = parseInt(el.dataset.index);
                 if (!isNaN(idx)) {
-                    const targetMsg = conversationHistory[idx];
-                    if (targetMsg) {
-                        scrollToMessage(idx);
-                    }
+                    scrollToMessage(idx);
                 }
             });
         });
@@ -460,7 +509,6 @@
         const result = await model.generateContent([promptText, imagePart]);
         const responseText = result.response.text();
         
-        // استخراج HTML إن وجد
         let htmlContent = responseText;
         if (!responseText.includes('<div') && !responseText.includes('<h')) {
             htmlContent = `<div class="report-card"><h3>📋 تقرير MAEK7</h3><p>${responseText.replace(/\n/g, '<br>')}</p></div>`;
@@ -482,7 +530,6 @@
         
         try {
             const report = await analyzeDentalXRay(base64Image, userText || "كشف شامل");
-            // تحديث الرسالة الأخيرة
             conversationHistory[waitingMsgIndex] = {
                 sender: 'assistant',
                 text: report.rawText,
@@ -535,11 +582,22 @@
         }
     }
 
-    // حدث رفع الصورة
-    uploadBtn.addEventListener('click', () => fileInput.click());
+    // حدث رفع الصورة مع الإرشادات الذكية
+    uploadBtn.addEventListener('click', () => {
+        // إظهار الإرشادات كل 3 مرات أو لأول مرة
+        const hasSeenGuide = localStorage.getItem('maek7_guidance_seen');
+        if (!hasSeenGuide || imageUploadCount >= 3) {
+            showPhotoGuidance();
+            localStorage.setItem('maek7_guidance_seen', 'true');
+            imageUploadCount = 0;
+        }
+        fileInput.click();
+    });
+    
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        imageUploadCount++;
         const reader = new FileReader();
         reader.onload = async (ev) => {
             const base64 = ev.target.result;
@@ -551,13 +609,13 @@
         reader.readAsDataURL(file);
     });
 
-    // إرسال النص
     sendButton.addEventListener('click', async () => {
         const txt = userTextarea.value.trim();
         if (!txt) return;
         userTextarea.value = '';
         await sendTextOnly(txt);
     });
+    
     userTextarea.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -569,7 +627,7 @@
         if (confirm("مسح كل سجل المحادثات والتحليلات نهائياً؟")) {
             localStorage.removeItem('maek7_chat_log');
             conversationHistory = [];
-            loadStorage(); // يعيد التحميل مع رسالة الترحيب
+            loadStorage();
             renderHistorySidebar();
         }
     });
